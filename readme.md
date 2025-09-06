@@ -16,16 +16,22 @@ Este projeto foi desenvolvido como parte de um trabalho acadêmico, com o objeti
 ---
 
 ## 📂 Estrutura do Projeto
-📁 crypto-dashboard-eda
-┣ 📄 dashboard.py # Código principal do Streamlit
-┣ 📄 eda_notebook.ipynb # Análises exploratórias (Jupyter)
-┣ 📄 Dataset_Criptomoedas.csv # Dataset usado (do Kaggle)
-┣ 📄 requirements.txt # Dependências do projeto
-┗ 📄 README.md # Documentação
+
+```
+📁 crypto-dashboard-eda/
+├── 📄 dashboard.py          # Código principal do Streamlit
+├── 📄 notebook.ipynb        # Análises exploratórias (Jupyter)
+├── 📄 cryptocurrency.csv    # Dataset usado (do Kaggle)
+├── 📄 requirements.txt      # Dependências do projeto
+└── 📄 README.md            # Documentação
+```
+
+---
 
 ---
 
 ## 📊 Principais Funcionalidades
+
 - **Filtros interativos**: escolha de moedas e período de análise.  
 - **Visualizações**:
   - Evolução do preço de fechamento.
@@ -37,6 +43,7 @@ Este projeto foi desenvolvido como parte de um trabalho acadêmico, com o objeti
 ---
 
 ## 🔧 Tecnologias Utilizadas
+
 - [Python 3.12](https://www.python.org/)  
 - [Pandas](https://pandas.pydata.org/)  
 - [Streamlit](https://streamlit.io/)  
@@ -46,6 +53,7 @@ Este projeto foi desenvolvido como parte de um trabalho acadêmico, com o objeti
 ---
 
 ## 📅 Período da Análise
+
 - Bitcoin: dados a partir de 2013  
 - Ethereum: dados a partir de 2015  
 - **Período em comum considerado: 2015 – 2021**  
@@ -54,24 +62,44 @@ Este projeto foi desenvolvido como parte de um trabalho acadêmico, com o objeti
 
 ## 📖 Como Executar o Projeto
 
-1. Clone este repositório:
-```bash
-git clone https://github.com/seu-usuario/crypto-dashboard-eda.git
-cd crypto-dashboard-eda
-2. Crie e ative um ambiente virtual:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-.venv\Scripts\activate     # Windows
-3. Instale as dependências:
-```bash
-pip install -r requirements.txt
-4. Execute o dashboard:
-```bash
-streamlit run dashboard.py
+1. **Clone este repositório:**
+   ```bash
+   git clone https://github.com/kiovaz/crypto-dashboard-eda.git
+   cd crypto-dashboard-eda
+   ```
 
-📌 Observações
+2. **Crie e ative um ambiente virtual:**
+   ```bash
+   python -m venv .venv
+   
+   # Linux/Mac
+   source .venv/bin/activate
+   
+   # Windows
+   .venv\Scripts\activate
+   ```
 
-Este projeto tem fins educacionais e não deve ser usado como ferramenta de investimento.
-Os dados foram obtidos do Kaggle e abrangem o período de 2013–2021, com filtragem para 2015–2021 para permitir comparações justas entre as moedas.
+3. **Instale as dependências:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
+4. **Execute o dashboard:**
+   ```bash
+   streamlit run dashboard.py
+   ```
+
+5. **Abra seu navegador** e acesse: `http://localhost:8501`
+
+---
+
+## 📌 Observações
+
+- Os dados foram obtidos do **Kaggle** e abrangem o período de 2013–2021, com filtragem para 2015–2021 para permitir comparações justas entre as moedas.
+- O dashboard é totalmente **interativo** e permite exploração visual dos dados.
+
+---
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
