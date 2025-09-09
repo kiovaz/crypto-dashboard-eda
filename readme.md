@@ -5,12 +5,12 @@ Este projeto foi desenvolvido como parte de um trabalho acadêmico, com o objeti
 ---
 
 ## 🚀 Objetivos do Projeto
-- Selecionar e justificar um dataset relevante do **Kaggle**.  
-- Realizar **análise exploratória de dados (EDA)** com `pandas`.  
-- Tratar dados faltantes, duplicados e padronizar colunas.  
-- Planejar e implementar um **dashboard interativo** usando `Streamlit` + `Plotly`.  
-- Criar visualizações claras e comparativas (preço, volume, marketcap).  
-- Implementar um **modelo simples de previsão de série temporal** para preços de criptomoedas.  
+- Selecionar e justificar um dataset relevante do **Kaggle**.
+- Realizar **análise exploratória de dados (EDA)** com `pandas`.
+- Tratar dados faltantes, duplicados e padronizar colunas.
+- Planejar e implementar um **dashboard interativo** usando `Streamlit` + `Plotly`.
+- Criar visualizações claras e comparativas (preço, volume, marketcap).
+- Implementar um **modelo simples de previsão de série temporal** para preços de criptomoedas.
 - Documentar código, decisões e resultados.
 
 ---
@@ -32,31 +32,31 @@ Este projeto foi desenvolvido como parte de um trabalho acadêmico, com o objeti
 
 ## 📊 Principais Funcionalidades
 
-- **Filtros interativos**: escolha de moedas e período de análise.  
+- **Filtros interativos**: escolha de moedas e período de análise.
 - **Visualizações**:
   - Evolução do preço de fechamento.
   - Volume negociado ao longo do tempo.
-  - Relação entre Market Cap e Preço.  
-- **Download de dados filtrados** em CSV.  
+  - Relação entre Market Cap e Preço.
+- **Download de dados filtrados** em CSV.
 - **Previsão simples de preços** usando séries temporais (modelo de baseline).
 
 ---
 
 ## 🔧 Tecnologias Utilizadas
 
-- [Python 3.12](https://www.python.org/)  
-- [Pandas](https://pandas.pydata.org/)  
-- [Streamlit](https://streamlit.io/)  
-- [Plotly](https://plotly.com/python/)  
-- [Scikit-learn](https://scikit-learn.org/) (para modelo preditivo simples)  
+- [Python 3.12](https://www.python.org/)
+- [Pandas](https://pandas.pydata.org/)
+- [Streamlit](https://streamlit.io/)
+- [Plotly](https://plotly.com/python/)
+- [Scikit-learn](https://scikit-learn.org/) (para modelo preditivo simples)
 
 ---
 
 ## 📅 Período da Análise
 
-- Bitcoin: dados a partir de 2013  
-- Ethereum: dados a partir de 2015  
-- **Período em comum considerado: 2015 – 2021**  
+- Bitcoin: dados a partir de 2013
+- Ethereum: dados a partir de 2015
+- **Período em comum considerado: 2015 – 2021**
 
 ---
 
