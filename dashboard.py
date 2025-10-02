@@ -11,6 +11,32 @@ st.set_page_config(page_title="Crypto Dash",page_icon="data/image.png",layout="w
 
 df = pd.read_csv("data/cryptocurrency.csv")
 
+# Função para limpeza de outliers no volume
+def analyze_volume_outliers(df, column='Volume'):
+    """Analisa outliers sem removê-los automaticamente"""
+    outlier_info = {}
+    
+    for symbol in df['Symbol'].unique():
+        symbol_data = df[df['Symbol'] == symbol]
+        Q1 = symbol_data[column].quantile(0.25)
+        Q3 = symbol_data[column].quantile(0.75)
+        IQR = Q3 - Q1
+        lower = Q1 - 1.5 * IQR
+        upper = Q3 + 1.5 * IQR
+        
+        # Identificar outliers
+        outliers = symbol_data[(symbol_data[column] < lower) | (symbol_data[column] > upper)]
+        
+        outlier_info[symbol] = {
+            'count': len(outliers),
+            'percentage': (len(outliers) / len(symbol_data)) * 100,
+            'extreme_high': outliers[column].max() if len(outliers) > 0 else None,
+            'extreme_low': outliers[column].min() if len(outliers) > 0 else None,
+            'dates': outliers[['Date', column]].copy() if len(outliers) > 0 else pd.DataFrame()
+        }
+    
+    return outlier_info
+
 menu = st.sidebar.radio(
     "📌 Navegação",
     ["Dashboard Principal", "Análise BTC 2021"]
@@ -28,6 +54,9 @@ if menu == "Dashboard Principal":
 
     # Filtrar dataset para período onde ambas as moedas existem
     df_2015 = df[(df["Date"] >= start_date) & (df["Date"] <= end_date)].copy()
+
+    # APLICAR LIMPEZA DE OUTLIERS APENAS NO VOLUME
+    outlier_info = analyze_volume_outliers(df_2015, 'Volume')
 
     # Criar colunas temporais
     df_2015['Year'] = df_2015['Date'].dt.year
@@ -60,41 +89,41 @@ if menu == "Dashboard Principal":
     eth = df_2015[df_2015['Symbol'] == 'ETH'].copy()
 
     st.title("Crypto Dash EDA")
-    st.subheader("Análise de Criptomoedas - BTC / ETH (2015 - 2020)")
-
+    st.subheader("Análise de Criptomoedas - BTC / ETH (2015 - 2021)")
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
-    # Coluna 1: Seletor de Criptomoeda e Valor Médio
+    # Coluna 1: Valor Médio com Tooltips Detalhados
     with col1:
-        # Opções únicas de criptomoedas
         crypto_options = df_2015['Symbol'].unique()
         
-        # Selectbox para escolher a criptomoeda
         selected_crypto = st.selectbox(
             "Valor Médio",
             options=crypto_options,
-            index=0  # BTC como padrão
+            index=0
         )
         
-        # Filtrar dados da cripto selecionada
         selected_data = df_2015[df_2015['Symbol'] == selected_crypto]
         valor_medio = selected_data['Close'].mean()
+        valor_min = selected_data['Close'].min()
+        valor_max = selected_data['Close'].max()
         
-        # Definir limite máximo baseado na criptomoeda
         if selected_crypto == 'BTC':
             max_range = 20000
         elif selected_crypto == 'ETH':
-            max_range = 500  # Reduzir para melhor visualização do ETH
+            max_range = 500
         else:
-            max_range = selected_data['Close'].max()  # Para outras criptos
+            max_range = selected_data['Close'].max()
         
-        # Velocímetro com limites fixos
+        # Velocímetro com tooltip detalhado
         fig1 = go.Figure(go.Indicator(
             mode = "gauge+number",
             value = valor_medio,
             domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'font': {'size': 16, 'color': '#333'}},
+            title = {
+                'text': f"<b>{selected_crypto}</b><br><span style='font-size:12px'>Mín: ${valor_min:,.0f} | Máx: ${valor_max:,.0f}</span>", 
+                'font': {'size': 14, 'color': '#333'}
+            },
             number = {'prefix': "$", 'font': {'size': 18, 'color': '#1f77b4'}},
             gauge = {
                 'axis': {'range': [0, max_range], 'tickwidth': 1, 'tickcolor': "darkblue"},
@@ -119,45 +148,49 @@ if menu == "Dashboard Principal":
         )
         
         st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
-
+        
+        # Tooltip adicional abaixo do gráfico
+        with st.expander("Detalhes"):
+            st.write(f"**Período:** {selected_data['Date'].min().strftime('%Y-%m-%d')} a {selected_data['Date'].max().strftime('%Y-%m-%d')}")
+            st.write(f"**Dias analisados:** {len(selected_data):,}")
+            st.write(f"**Desvio padrão:** ${selected_data['Close'].std():,.2f}")
 
     with col2:
-        # Selectbox para escolher a criptomoeda para drawdowns
         selected_dd_crypto = st.selectbox(
             "DrawDowns",
             options=crypto_options,
-            index=0,  # BTC como padrão
+            index=0,
             key="dd_crypto"
         )
         
-        # Filtrar dados da cripto selecionada para drawdowns
         dd_data = df_2015[df_2015['Symbol'] == selected_dd_crypto].copy()
         
-        # Calcular drawdowns
         dd_data['Cumulative_Return'] = (1 + dd_data['Return'].fillna(0) / 100).cumprod()
         dd_data['Peak'] = dd_data['Cumulative_Return'].expanding().max()
         dd_data['Drawdown'] = ((dd_data['Cumulative_Return'] / dd_data['Peak']) - 1) * 100
         
-        # Máximo drawdown (valor absoluto para mostrar no velocímetro)
         max_drawdown = abs(dd_data['Drawdown'].min())
+        avg_drawdown = abs(dd_data[dd_data['Drawdown'] < -1]['Drawdown'].mean())
         
-        # Velocímetro para DrawDown (mesmo estilo da coluna 1)
         fig2 = go.Figure(go.Indicator(
             mode = "gauge+number",
             value = max_drawdown,
             domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': f"{selected_dd_crypto} DD", 'font': {'size': 16, 'color': '#333'}},
+            title = {
+                'text': f"<b>{selected_dd_crypto} DD</b><br><span style='font-size:12px'>Média: {avg_drawdown:.1f}%</span>", 
+                'font': {'size': 14, 'color': '#333'}
+            },
             number = {'suffix': "%", 'font': {'size': 18, 'color': '#e74c3c'}},
             gauge = {
                 'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                'bar': {'color': "#e74c3c"},  # Vermelho para drawdown
+                'bar': {'color': "#e74c3c"},
                 'bgcolor': "white",
                 'borderwidth': 2,
                 'bordercolor': "gray",
                 'steps': [
-                    {'range': [0, 30], 'color': "#fff2f0"},    # Leve
-                    {'range': [30, 60], 'color': "#ffccc7"},   # Moderado
-                    {'range': [60, 100], 'color': "#ffa39e"}], # Severo
+                    {'range': [0, 30], 'color': "#fff2f0"},
+                    {'range': [30, 60], 'color': "#ffccc7"},
+                    {'range': [60, 100], 'color': "#ffa39e"}],
                 'threshold': {
                     'line': {'color': "darkred", 'width': 4},
                     'thickness': 0.75,
@@ -172,47 +205,52 @@ if menu == "Dashboard Principal":
         
         st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
         
+        with st.expander("Detalhes"):
+            drawdowns_significativos = len(dd_data[dd_data['Drawdown'] < -10])
+            st.write(f"**DD > 10%:** {drawdowns_significativos} ocorrências")
+            st.write(f"**Média de DDs:** {avg_drawdown:.1f}%")
+            st.write(f"**Interpretação:** {'Alto risco' if max_drawdown > 50 else 'Risco moderado' if max_drawdown > 30 else 'Baixo risco'}")
 
     with col3:
-        # Selectbox para escolher a criptomoeda para risco x retorno
         selected_risk_crypto = st.selectbox(
             "Risco x Retorno",
             options=crypto_options,
-            index=0,  # BTC como padrão
+            index=0,
             key="risk_crypto"
         )
         
-        # Filtrar dados da cripto selecionada
         risk_data = df_2015[df_2015['Symbol'] == selected_risk_crypto].copy()
         
-        # Calcular métricas de risco e retorno
-        retorno_medio = risk_data['Return'].mean()  # Retorno médio diário
-        risco = risk_data['Return'].std()  # Volatilidade (risco)
+        retorno_medio = risk_data['Return'].mean()
+        risco = risk_data['Return'].std()
+        retorno_anual = retorno_medio * 365
+        risco_anual = risco * np.sqrt(365)
         
-        # Calcular Sharpe Ratio (retorno/risco) - assumindo taxa livre de risco = 0
         if risco > 0:
             sharpe_ratio = retorno_medio / risco
         else:
             sharpe_ratio = 0
         
-        # Velocímetro para Sharpe Ratio com escala REAL
         fig3 = go.Figure(go.Indicator(
             mode = "gauge+number",
-            value = sharpe_ratio,  # VALOR REAL, não escalado
+            value = sharpe_ratio,
             domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': f"{selected_risk_crypto} Sharpe", 'font': {'size': 16, 'color': '#333'}},
+            title = {
+                'text': f"<b>{selected_risk_crypto} Sharpe</b><br><span style='font-size:12px'>Ret: {retorno_anual:.1f}% | Vol: {risco_anual:.1f}%</span>", 
+                'font': {'size': 14, 'color': '#333'}
+            },
             number = {'font': {'size': 18, 'color': '#28a745'}},
             gauge = {
-                'axis': {'range': [-3, 3], 'tickwidth': 1, 'tickcolor': "darkblue"},  # ESCALA REAL
+                'axis': {'range': [-3, 3], 'tickwidth': 1, 'tickcolor': "darkblue"},
                 'bar': {'color': "#28a745"},
                 'bgcolor': "white",
                 'borderwidth': 2,
                 'bordercolor': "gray",
                 'steps': [
-                    {'range': [-3, 0], 'color': "#ffebee"},   # Negativo (ruim)
-                    {'range': [0, 1], 'color': "#fff3e0"},    # Baixo
-                    {'range': [1, 2], 'color': "#e8f5e8"},    # Bom  
-                    {'range': [2, 3], 'color': "#c3e6cb"}],   # Excelente
+                    {'range': [-3, 0], 'color': "#ffebee"},
+                    {'range': [0, 1], 'color': "#fff3e0"},
+                    {'range': [1, 2], 'color': "#e8f5e8"},
+                    {'range': [2, 3], 'color': "#c3e6cb"}],
                 'threshold': {
                     'line': {'color': "green", 'width': 4},
                     'thickness': 0.75,
@@ -226,50 +264,52 @@ if menu == "Dashboard Principal":
         )
         
         st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
-
+        
+        with st.expander("Detalhes"):
+            st.write(f"**Retorno anualizado:** {retorno_anual:.1f}%")
+            st.write(f"**Volatilidade anual:** {risco_anual:.1f}%")
+            interpretacao = "Excelente" if sharpe_ratio > 2 else "Bom" if sharpe_ratio > 1 else "Razoável" if sharpe_ratio > 0 else "Ruim"
+            st.write(f"**Classificação:** {interpretacao}")
 
     with col4:
-        # Selectbox para escolher a criptomoeda
         selected_trend_crypto = st.selectbox(
             "Tendência Valorização",
             options=crypto_options,
-            index=0,  # BTC como padrão
+            index=0,
             key="trend_crypto"
         )
         
-        # Filtrar dados da cripto selecionada
         trend_data = df_2015[df_2015['Symbol'] == selected_trend_crypto].copy()
         
-        # Contar retornos por status
         status_counts = trend_data['Return_Status'].value_counts()
         
-        # Calcular percentuais
         total_days = len(trend_data)
         positive_pct = (status_counts.get('Positivo', 0) / total_days) * 100
         negative_pct = (status_counts.get('Negativo', 0) / total_days) * 100
         neutral_pct = (status_counts.get('Neutro', 0) / total_days) * 100
         
-        # Usar percentual de dias positivos como indicador de tendência
         trend_score = positive_pct
         
-        # Velocímetro para Tendência de Valorização (mesmo estilo das outras)
         fig4 = go.Figure(go.Indicator(
             mode = "gauge+number",
             value = trend_score,
             domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': f"{selected_trend_crypto} Trend", 'font': {'size': 16, 'color': '#333'}},
+            title = {
+                'text': f"<b>{selected_trend_crypto} Trend</b><br><span style='font-size:12px'>Neg: {negative_pct:.1f}% | Neu: {neutral_pct:.1f}%</span>", 
+                'font': {'size': 14, 'color': '#333'}
+            },
             number = {'suffix': "%", 'font': {'size': 18, 'color': '#17a2b8'}},
             gauge = {
                 'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                'bar': {'color': "#17a2b8"},  # Azul para tendência
+                'bar': {'color': "#17a2b8"},
                 'bgcolor': "white",
                 'borderwidth': 2,
                 'bordercolor': "gray",
                 'steps': [
-                    {'range': [0, 30], 'color': "#f8d7da"},    # Baixa (mais dias negativos)
-                    {'range': [30, 50], 'color': "#fff3cd"},   # Neutra
-                    {'range': [50, 70], 'color': "#d1ecf1"},   # Boa
-                    {'range': [70, 100], 'color': "#c3e6cb"}], # Excelente (mais dias positivos)
+                    {'range': [0, 30], 'color': "#f8d7da"},
+                    {'range': [30, 50], 'color': "#fff3cd"},
+                    {'range': [50, 70], 'color': "#d1ecf1"},
+                    {'range': [70, 100], 'color': "#c3e6cb"}],
                 'threshold': {
                     'line': {'color': "blue", 'width': 4},
                     'thickness': 0.75,
@@ -283,69 +323,68 @@ if menu == "Dashboard Principal":
         )
         
         st.plotly_chart(fig4, use_container_width=True, config={'displayModeBar': False})
-
+        
+        with st.expander("Detalhes"):
+            st.write(f"**Dias positivos:** {status_counts.get('Positivo', 0)} ({positive_pct:.1f}%)")
+            st.write(f"**Dias negativos:** {status_counts.get('Negativo', 0)} ({negative_pct:.1f}%)")
+            st.write(f"**Dias neutros:** {status_counts.get('Neutro', 0)} ({neutral_pct:.1f}%)")
 
     with col5:
-        # Selectbox para escolher a criptomoeda
         selected_recovery_crypto = st.selectbox(
             "Eficiência Recuperação",
             options=crypto_options,
-            index=0,  # BTC como padrão
+            index=0,
             key="recovery_crypto"
         )
         
-        # Filtrar dados da cripto selecionada
         recovery_data = df_2015[df_2015['Symbol'] == selected_recovery_crypto].copy()
         
-        # Calcular eficiência de recuperação
-        # 1. Calcular retorno cumulativo e picos
         recovery_data['Cumulative_Return'] = (1 + recovery_data['Return'].fillna(0) / 100).cumprod()
         recovery_data['Peak'] = recovery_data['Cumulative_Return'].expanding().max()
         recovery_data['Drawdown'] = ((recovery_data['Cumulative_Return'] / recovery_data['Peak']) - 1) * 100
         
-        # 2. Identificar períodos de drawdown e recuperação
         recovery_times = []
         in_drawdown = False
         drawdown_start = 0
         
         for i, row in recovery_data.iterrows():
-            if row['Drawdown'] < -5 and not in_drawdown:  # Início de drawdown significativo (>5%)
+            if row['Drawdown'] < -5 and not in_drawdown:
                 in_drawdown = True
                 drawdown_start = i
-            elif row['Drawdown'] >= -1 and in_drawdown:  # Recuperação (volta a menos de 1% do pico)
+            elif row['Drawdown'] >= -1 and in_drawdown:
                 recovery_time = i - drawdown_start
                 if recovery_time > 0:
                     recovery_times.append(recovery_time)
                 in_drawdown = False
         
-        # 3. Calcular eficiência média de recuperação
         if recovery_times:
             avg_recovery_days = np.mean(recovery_times)
-            # Converter para score de eficiência (menor tempo = maior eficiência)
-            # Escala: 1-100 onde 100 = recuperação muito rápida
-            max_days = 365  # Assumir 1 ano como tempo máximo razoável
+            max_days = 365
             efficiency_score = max(0, 100 - (avg_recovery_days / max_days * 100))
         else:
-            efficiency_score = 50  # Score neutro se não houver dados suficientes
+            efficiency_score = 50
+            avg_recovery_days = 0
         
-        # Velocímetro para Eficiência de Recuperação
         fig5 = go.Figure(go.Indicator(
             mode = "gauge+number",
             value = efficiency_score,
             domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': f"{selected_recovery_crypto} Recov", 'font': {'size': 16, 'color': '#333'}},
+            title = {
+                'text': f"<b>{selected_recovery_crypto} Recov</b><br><span style='font-size:12px'>Média: {avg_recovery_days:.0f} dias</span>", 
+                'font': {'size': 14, 'color': '#333'}
+            },
             number = {'suffix': "%", 'font': {'size': 18, 'color': '#9c27b0'}},
             gauge = {
                 'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "darkblue"},
-                'bar': {'color': "#9c27b0"},  # Roxo para eficiência de recuperação
+                'bar': {'color': "#9c27b0"},
                 'bgcolor': "white",
                 'borderwidth': 2,
                 'bordercolor': "gray",
                 'steps': [
-                    {'range': [0, 25], 'color': "#fce4ec"},    # Baixa eficiência
-                    {'range': [25, 50], 'color': "#f8bbd9"},   # Média baixa
-                    {'range': [50, 75], 'color': "#e1bee7"},   # Boa
-                    {'range': [75, 100], 'color': "#ce93d8"}], # Excelente
+                    {'range': [0, 25], 'color': "#fce4ec"},
+                    {'range': [25, 50], 'color': "#f8bbd9"},
+                    {'range': [50, 75], 'color': "#e1bee7"},
+                    {'range': [75, 100], 'color': "#ce93d8"}],
                 'threshold': {
                     'line': {'color': "purple", 'width': 4},
                     'thickness': 0.75,
@@ -359,25 +398,41 @@ if menu == "Dashboard Principal":
         )
         
         st.plotly_chart(fig5, use_container_width=True, config={'displayModeBar': False})
+        
+        with st.expander("Detalhes"):
+            st.write(f"**Recuperações analisadas:** {len(recovery_times)}")
+            if recovery_times:
+                st.write(f"**Tempo médio:** {avg_recovery_days:.0f} dias")
+                st.write(f"**Mais rápida:** {min(recovery_times)} dias")
+                st.write(f"**Mais lenta:** {max(recovery_times)} dias")
+            else:
+                st.write("**Dados insuficientes** para análise")
 
     # Linha divisória
     st.divider()
 
-    # Segunda linha - 2 gráficos grandes
     col_left, col_right = st.columns(2)
 
-    # Gráfico da Esquerda: Preços Históricos com Picos
     with col_left:
         st.subheader("Picos Históricos")
         
-        # Selectbox para escolher visualização
         price_view = st.selectbox(
             "Selecione a visualização:",
             options=["BTC", "ETH", "BTC + ETH (Comparação)"],
-            index=0,  # BTC como padrão
+            index=0,
             key="price_view"
         )
         
+        # ADICIONAR BALÃO AZUL
+        if price_view == "BTC":
+            st.markdown('<div style="padding: 0.75rem; background-color: #172c43; border-radius: 0.25rem; color: #ffffff;">Preço máximo: $63503 | Mínimo: $210 | Média: $9149</div>', unsafe_allow_html=True)
+            
+        elif price_view == "ETH":
+            st.markdown('<div style="padding: 0.75rem; background-color: #172c43; border-radius: 0.25rem; color: #ffffff;">Preço máximo: $4169 | Mínimo: $0.43 | Média: $384</div>', unsafe_allow_html=True)
+            
+        else:
+            st.markdown('<div style="padding: 0.75rem; background-color: #172c43; border-radius: 0.25rem; color: #ffffff;">BTC máximo: $63503 | ETH máximo: $4169 | Período: 2015-2020</div>', unsafe_allow_html=True)
+
         fig_price = go.Figure()
         
         if price_view == "BTC":
@@ -387,7 +442,7 @@ if menu == "Dashboard Principal":
             # Encontrar picos (máximos locais)
             from scipy.signal import find_peaks
             prices = btc_data['Close'].values
-            peaks, _ = find_peaks(prices, height=prices.mean(), distance=30)  # Picos significativos
+            peaks, _ = find_peaks(prices, height=prices.mean(), distance=30)
             
             # Linha principal do BTC
             fig_price.add_trace(go.Scatter(
@@ -408,6 +463,28 @@ if menu == "Dashboard Principal":
                     name='Picos BTC',
                     marker=dict(color='red', size=8, symbol='triangle-up'),
                     hovertemplate='<b>Pico BTC</b><br>Data: %{x}<br>Preço: $%{y:,.0f}<extra></extra>'
+                ))
+            
+            # EVENTOS MAIS IMPORTANTES BTC (5 eventos)
+            eventos_btc = [
+                {'date': '2016-07-09', 'price': 662, 'event': 'Halving: Redução Emissão 50%', 'color': '#3498db'},
+                {'date': '2017-12-17', 'price': 19497, 'event': 'Bull Run 2017 - Euforia Global', 'color': '#ff6b6b'},
+                {'date': '2020-03-13', 'price': 4970, 'event': 'Crash Pandemia COVID-19', 'color': '#ee5a6f'},
+                {'date': '2021-02-08', 'price': 46433, 'event': 'Tesla Compra $1.5 Bilhões', 'color': '#f39c12'},
+                {'date': '2021-04-14', 'price': 63503, 'event': 'Bull Run 2021 - Boom Institucional', 'color': '#95e1d3'},
+            ]
+            
+            for evento in eventos_btc:
+                fig_price.add_trace(go.Scatter(
+                    x=[evento['date']],
+                    y=[evento['price']],
+                    mode='markers+text',
+                    name=evento['event'],
+                    marker=dict(color=evento['color'], size=12, symbol='star'),
+                    text=evento['event'],
+                    textposition='top center',
+                    textfont=dict(size=9, color=evento['color'], family='Arial Black'),
+                    hovertemplate=f"<b>{evento['event']}</b><br>Data: {evento['date']}<br>Preço: ${evento['price']:,.0f}<extra></extra>"
                 ))
             
             fig_price.update_yaxes(title_text="Preço BTC (USD)")
@@ -440,6 +517,28 @@ if menu == "Dashboard Principal":
                     name='Picos ETH',
                     marker=dict(color='red', size=8, symbol='triangle-up'),
                     hovertemplate='<b>Pico ETH</b><br>Data: %{x}<br>Preço: $%{y:,.0f}<extra></extra>'
+                ))
+            
+            # EVENTOS MAIS IMPORTANTES ETH (5 eventos)
+            eventos_eth = [
+                {'date': '2016-06-17', 'price': 20, 'event': 'Hack: $50M Roubados (DAO)', 'color': '#c0392b'},
+                {'date': '2017-06-12', 'price': 395, 'event': 'Boom de ICOs', 'color': '#3498db'},
+                {'date': '2018-01-13', 'price': 1417, 'event': 'Bull Run 2018 - Mania ICOs', 'color': '#a29bfe'},
+                {'date': '2020-12-01', 'price': 594, 'event': 'ETH 2.0: Nova Versão', 'color': '#16a085'},
+                {'date': '2021-05-12', 'price': 4169, 'event': 'Bull Run 2021 - Era DeFi/NFT', 'color': '#fdcb6e'},
+            ]
+            
+            for evento in eventos_eth:
+                fig_price.add_trace(go.Scatter(
+                    x=[evento['date']],
+                    y=[evento['price']],
+                    mode='markers+text',
+                    name=evento['event'],
+                    marker=dict(color=evento['color'], size=12, symbol='star'),
+                    text=evento['event'],
+                    textposition='top center',
+                    textfont=dict(size=9, color=evento['color'], family='Arial Black'),
+                    hovertemplate=f"<b>{evento['event']}</b><br>Data: {evento['date']}<br>Preço: ${evento['price']:,.0f}<extra></extra>"
                 ))
             
             fig_price.update_yaxes(title_text="Preço ETH (USD)")
@@ -496,12 +595,54 @@ if menu == "Dashboard Principal":
                 hovertemplate='<b>Pico ETH</b><br>Data: %{x}<br>Preço: $%{y:,.0f}<extra></extra>'
             ))
             
+            # TOP 3 EVENTOS BTC
+            top_eventos_btc = [
+                {'date': '2017-12-17', 'price': 19497, 'event': 'BTC Bull Run 2017', 'color': '#ff6b6b'},
+                {'date': '2020-03-13', 'price': 4970, 'event': 'BTC Crash COVID', 'color': '#ee5a6f'},
+                {'date': '2021-04-14', 'price': 63503, 'event': 'BTC Bull Run 2021', 'color': '#95e1d3'},
+            ]
+            
+            # TOP 3 EVENTOS ETH
+            top_eventos_eth = [
+                {'date': '2018-01-13', 'price': 1417, 'event': 'ETH Bull Run 2018', 'color': '#a29bfe'},
+                {'date': '2020-03-13', 'price': 109, 'event': 'ETH Crash COVID', 'color': '#fd79a8'},
+                {'date': '2021-05-12', 'price': 4169, 'event': 'ETH Bull Run 2021', 'color': '#fdcb6e'},
+            ]
+            
+            # Adicionar eventos BTC
+            for evento in top_eventos_btc:
+                fig_price.add_trace(go.Scatter(
+                    x=[evento['date']],
+                    y=[evento['price']],
+                    mode='markers+text',
+                    name=evento['event'],
+                    marker=dict(color=evento['color'], size=10, symbol='star'),
+                    text=evento['event'],
+                    textposition='top center',
+                    textfont=dict(size=8, color=evento['color']),
+                    hovertemplate=f"<b>{evento['event']}</b><br>Data: {evento['date']}<br>Preço: ${evento['price']:,.0f}<extra></extra>"
+                ))
+            
+            # Adicionar eventos ETH
+            for evento in top_eventos_eth:
+                fig_price.add_trace(go.Scatter(
+                    x=[evento['date']],
+                    y=[evento['price']],
+                    mode='markers+text',
+                    name=evento['event'],
+                    marker=dict(color=evento['color'], size=10, symbol='diamond'),
+                    text=evento['event'],
+                    textposition='bottom center',
+                    textfont=dict(size=8, color=evento['color']),
+                    hovertemplate=f"<b>{evento['event']}</b><br>Data: {evento['date']}<br>Preço: ${evento['price']:,.0f}<extra></extra>"
+                ))
+            
             fig_price.update_yaxes(title_text="Preço (USD)")
         
         # Layout comum
         fig_price.update_layout(
             height=450,
-            margin={'t': 20, 'b': 50, 'l': 60, 'r': 20},  # Margem direita normal
+            margin={'t': 20, 'b': 50, 'l': 60, 'r': 20},
             xaxis_title="Data",
             hovermode='x unified',
             legend=dict(
@@ -520,12 +661,91 @@ if menu == "Dashboard Principal":
         fig_price.update_yaxes(gridcolor='rgba(128,128,128,0.2)', gridwidth=1)
         
         st.plotly_chart(fig_price, use_container_width=True, config={'displayModeBar': False})
+        
+        # EXPLICAÇÃO DOS EVENTOS OCUPANDO 2 COLUNAS
+    
+    # Mover o expander para FORA do with col_left
+    with st.expander("📖 Explicação dos Eventos Históricos"):
+        if price_view == "BTC":
+            st.markdown("""
+            ### 🔸 Bitcoin - Eventos Mais Importantes
+            
+            **1. Halving (09/07/2016) - $662**
+            - Redução automática de 50% na emissão de novos Bitcoins
+            - Acontece a cada 4 anos para controlar a inflação
+            - Torna o Bitcoin mais escasso, tendendo a aumentar o preço
+            
+            **2. Bull Run 2017 (17/12/2017) - $19,497**
+            - Primeira grande explosão de preço do Bitcoin
+            - Euforia global e entrada massiva de investidores
+            - Mercado em alta extrema com valorização de +2000%
+            
+            **3. Crash COVID-19 (13/03/2020) - $4,970**
+            - Pandemia causou pânico nos mercados globais
+            - Bitcoin caiu mais de 50% em poucos dias
+            - Maior queda desde 2018
+            
+            **4. Tesla Investe (08/02/2021) - $46,433**
+            - Tesla de Elon Musk comprou $1.5 bilhões em Bitcoin
+            - Primeira grande empresa a adotar BTC no balanço
+            - Validação institucional histórica
+            
+            **5. Bull Run 2021 (14/04/2021) - $63,503**
+            - Segunda grande explosão de preço
+            - Adoção institucional massiva (bancos, fundos, empresas)
+            - Bitcoin consolida-se como "ouro digital"
+            """)
+            
+        elif price_view == "ETH":
+            st.markdown("""
+            ### 🔹 Ethereum - Eventos Mais Importantes
+            
+            **1. Hack DAO (17/06/2016) - $20**
+            - Hackers roubaram $50 milhões em Ethereum
+            - Maior roubo cripto da história na época
+            - Levou à divisão da rede (Hard Fork)
+            
+            **2. Boom de ICOs (12/06/2017) - $395**
+            - Explosão de lançamentos de novos projetos
+            - Ethereum virou plataforma #1 para fundraising
+            - Centenas de startups arrecadaram bilhões
+            
+            **3. Bull Run 2018 (13/01/2018) - $1,417**
+            - Auge da mania de ICOs e especulação
+            - Ethereum chegou a $1,400 pela primeira vez
+            - Mercado superaquecido antes da grande queda
+            
+            **4. ETH 2.0 Lançado (01/12/2020) - $594**
+            - Atualização mais importante da história do Ethereum
+            - Mudança para sistema mais ecológico (Proof-of-Stake)
+            - Promessa de rede 100x mais rápida
+            
+            **5. Bull Run 2021 (12/05/2021) - $4,169**
+            - Segunda grande explosão de preço
+            - Boom de DeFi (finanças descentralizadas) e NFTs
+            - Ethereum consolida-se como plataforma líder
+            """)
+            
+        else:
+            st.markdown("""
+            ### 🔥 Comparação: Top 3 Eventos de Cada Moeda
+            
+            **Bitcoin (BTC):**
+            1. **Bull Run 2017** - Primeira grande explosão (+2000%)
+            2. **Crash COVID** - Maior queda da década (-74%)
+            3. **Bull Run 2021** - Adoção institucional (+225%)
+            
+            **Ethereum (ETH):**
+            1. **Bull Run 2018** - Mania de ICOs (+13000%)
+            2. **Crash COVID** - Queda sincronizada com BTC (-92%)
+            3. **Bull Run 2021** - Era DeFi e NFTs (+340%)
+            
+            **Insight:** Ambas as moedas seguem ciclos parecidos, mas Ethereum teve ganhos percentuais maiores no último bull run (ETH: +340% vs BTC: +225% de 2020-2021).
+            """)
 
-    # Gráfico da Direita: Volume de Transações
     with col_right:
         st.subheader("Volume de Transações")
         
-        # Selectbox para escolher a criptomoeda
         selected_volume_crypto = st.selectbox(
             "Escolha a criptomoeda:",
             options=["BTC", "ETH"],
@@ -533,13 +753,17 @@ if menu == "Dashboard Principal":
             key="volume_crypto"
         )
         
-        # Filtrar dados da cripto selecionada
         volume_data = df_2015[df_2015['Symbol'] == selected_volume_crypto].copy()
         
-        # Criar gráfico apenas do volume
+        # PADRONIZAR FORMATAÇÃO DO VOLUME (sem símbolo $)
+        vol_mean = volume_data['Volume'].mean() / 1e9
+        vol_median = volume_data['Volume'].median() / 1e9
+        vol_std = volume_data['Volume'].std() / 1e9
+        
+        st.markdown(f'<div style="padding: 0.75rem; background-color: #172c43; border-radius: 0.25rem; color: #ffffff;">Volume médio: {vol_mean:.2f}B | Mediana: {vol_median:.2f}B | Desvio: {vol_std:.2f}B</div>', unsafe_allow_html=True)
+        
         fig_right = go.Figure()
         
-        # Gráfico de volume (barras)
         fig_right.add_trace(
             go.Bar(
                 x=volume_data['Date'],
@@ -554,10 +778,9 @@ if menu == "Dashboard Principal":
             )
         )
         
-        # Layout igual ao gráfico da esquerda
         fig_right.update_layout(
-            height=450,  # MESMA ALTURA do gráfico da esquerda
-            margin={'t': 20, 'b': 50, 'l': 60, 'r': 20},  # MESMAS MARGENS
+            height=450,
+            margin={'t': 20, 'b': 50, 'l': 60, 'r': 20},
             xaxis_title="Data",
             yaxis_title="Volume de Transações",
             hovermode='x unified',
@@ -567,32 +790,26 @@ if menu == "Dashboard Principal":
             font={'size': 12}
         )
         
-        # Grid igual ao da esquerda
         fig_right.update_xaxes(gridcolor='rgba(128,128,128,0.2)', gridwidth=1)
         fig_right.update_yaxes(gridcolor='rgba(128,128,128,0.2)', gridwidth=1)
         
         st.plotly_chart(fig_right, use_container_width=True, config={'displayModeBar': False})
 
-    # ----------------------------------------------------------------------------------------------------- #
-
 elif menu == "Análise BTC 2021":
     st.title("📈 Análise BTC 2021 (Jan - Jul)")
 
-    # --- Título da seção ---
     st.header("2021 - Janeiro até Julho")
     st.subheader("7 Meses de 2021 - Crescimento Diário BTC")
 
     dates = pd.date_range("2021-01-01", "2021-07-31")
     close = np.cumprod(1 + np.random.normal(0, 0.02, len(dates))) * 30000
-    volume = np.random.randint(1e9, 5e9, len(dates))
+    volume = np.random.randint(1e9, 5e9, len(dates),dtype=np.int64)
     df = pd.DataFrame({"Date": dates, "Close": close, "Volume": volume})
 
-    # --- Cálculos principais ---
     df["Return"] = df["Close"].pct_change()
     df["CumReturn"] = (1 + df["Return"]).cumprod() - 1
     df["DayType"] = df["Return"].apply(lambda x: "positive" if x > 0 else ("negative" if x < 0 else "neutral"))
 
-    # Seleção do usuário
     opcao = st.selectbox(
         "Escolha a análise:",
         [
@@ -604,7 +821,6 @@ elif menu == "Análise BTC 2021":
         ]
     )
 
-    # --- Visualizações ---
     if opcao == "Retornos Diários":
         fig = px.bar(df, x="Date", y="Return", color=df["Return"] > 0,
                     color_discrete_map={True: "green", False: "red"},
