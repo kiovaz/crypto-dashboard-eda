@@ -620,24 +620,30 @@ elif menu == "Análise BTC 2021":
         corr2 = df["Volume"].corr(df["Close"])
 
         fig = go.Figure()
+
         fig.add_trace(go.Indicator(
             mode="gauge+number",
             value=corr1,
             title={"text": "Volume × |Retorno|"},
-            gauge={'axis': {'range': [-1, 1]}}
+            gauge={'axis': {'range': [-1, 1]}},
+            domain={'row': 0, 'column': 0}   # primeira coluna
         ))
+
         fig.add_trace(go.Indicator(
             mode="gauge+number",
             value=corr2,
             title={"text": "Volume × Preço"},
             gauge={'axis': {'range': [-1, 1]}},
-            domain={'row': 1, 'column': 0}
+            domain={'row': 0, 'column': 1}   # segunda coluna
         ))
+
         fig.update_layout(
-            grid={'rows': 2, 'columns': 1, 'pattern': "independent"},
-            height=600
+            grid={'rows': 1, 'columns': 2, 'pattern': "independent"},  # lado a lado
+            height=400
         )
+
         st.plotly_chart(fig, use_container_width=True)
+
 
     elif opcao == "Contagem de Dias":
         counts = df["DayType"].value_counts()
