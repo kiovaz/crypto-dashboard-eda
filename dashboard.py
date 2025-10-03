@@ -817,7 +817,8 @@ elif menu == "Análise BTC 2021":
             "Retorno Acumulado",
             "Correlação Volume",
             "Contagem de Dias",
-            "Outliers"
+            "Outliers",
+            "Sazonalidade Mensal"
         ]
     )
 
@@ -881,4 +882,27 @@ elif menu == "Análise BTC 2021":
             title={"text": "Outliers em Retornos (%)"},
             gauge={'axis': {'range': [0, 100]}}
         ))
+        st.plotly_chart(fig, use_container_width=True)
+
+    elif opcao == "Sazonalidade Mensal":
+        # Criar coluna de mês se ainda não existir
+        if "Month" not in df.columns:
+            df["Month"] = df["Date"].dt.month_name()
+
+            # Garantir a ordem cronológica (Jan → Jul)
+            ordem_meses = ["January", "February", "March", "April", "May", "June", "July"]
+            df["Month"] = pd.Categorical(df["Month"], categories=ordem_meses, ordered=True)
+
+        # Agrupar volume por mês
+        sazonalidade = df.groupby("Month")["Volume"].sum().reset_index()
+
+        # Gráfico de barras
+        fig = px.bar(
+            sazonalidade,
+            x="Month",
+            y="Volume",
+            title="📊 Sazonalidade Mensal de Volume BTC (2021 Jan-Jul)",
+            color="Volume",
+            color_continuous_scale="Blues"
+        )
         st.plotly_chart(fig, use_container_width=True)
