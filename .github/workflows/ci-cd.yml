@@ -30,7 +30,7 @@ jobs:
       
       - name: Executar verificação de estilo com flake8
         run: |
-          flake8 . --count --max-line-length=120 --ignore=E203,W503 --show-source --statistics
+          flake8 . --count --show-source --statistics
       
       - name: Verificar formatação com black
         run: |
@@ -88,7 +88,7 @@ jobs:
       
       - name: Executar scan de vulnerabilidades
         run: |
-          safety check --json || true
+          safety check --json
         continue-on-error: true
 
   build-success:
