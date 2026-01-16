@@ -1,5 +1,7 @@
 # 📊 Crypto Dashboard – Bitcoin & Ethereum (2015–2021)
 
+![CI/CD Pipeline](https://github.com/kiovaz/crypto-dashboard-eda/workflows/CI%2FCD%20Pipeline/badge.svg)
+
 Este projeto foi desenvolvido como parte de um trabalho acadêmico, com o objetivo de criar um **dashboard interativo** para análise exploratória de dados financeiros. O foco está nas criptomoedas **Bitcoin (BTC)** e **Ethereum (ETH)**, no período de 2015 a 2021.
 
 ---
@@ -97,6 +99,19 @@ Este projeto foi desenvolvido como parte de um trabalho acadêmico, com o objeti
 
 - Os dados foram obtidos do **Kaggle** e abrangem o período de 2013–2021, com filtragem para 2015–2021 para permitir comparações justas entre as moedas.
 - O dashboard é totalmente **interativo** e permite exploração visual dos dados.
+
+---
+
+## 🔄 CI/CD Pipeline
+
+Este projeto utiliza GitHub Actions para garantir qualidade e segurança do código:
+
+- ✅ **Lint**: Verificação de estilo de código com flake8 e black
+- ✅ **Tests**: Validação de imports e sintaxe do dashboard
+- ✅ **Security**: Scan de vulnerabilidades nas dependências
+- ✅ **Automação**: Executa em cada push e pull request
+
+O status do pipeline pode ser visualizado no badge acima.
 
 ---
 
